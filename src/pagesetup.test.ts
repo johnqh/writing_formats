@@ -53,6 +53,24 @@ describe('Fountain title page and scene numbers', () => {
   });
 });
 
+describe('locks on export', () => {
+  it('writes locked A-numbers as fixed numbers and reports page locks as unsupported', () => {
+    const { document } = importFountain(FOUNTAIN);
+    const first = document.elements.find((e) => e.num)!;
+    first.num = { label: first.num!.label, locked: true, manual: false };
+    document.production.scenesLocked = true;
+    document.production.pagesLocked = true;
+    for (const fn of [exportFountain, exportFdx]) {
+      const res = fn(document);
+      const codes = res.report.diagnostics.map((d) => d.code);
+      expect(codes.some((c) => c.endsWith('_PAGE_LOCKS'))).toBe(true);
+      expect(codes.some((c) => c.endsWith('_SCENE_LOCKS'))).toBe(true);
+    }
+    const back = importFountain(exportFountain(document).text);
+    expect(back.document.elements.filter((e) => e.num).map((e) => e.num!.label.base + (e.num!.label.suffix.length ? 'A' : ''))).toEqual(['12A', '13']);
+  });
+});
+
 describe('FDX header/footer, title page and scene numbers', () => {
   it('round-trips header, footer, scene numbers and title page', () => {
     const { document } = importFountain(FOUNTAIN);

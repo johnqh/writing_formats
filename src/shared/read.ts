@@ -74,7 +74,8 @@ export function scanExportLosses(r: DocReader, report: ReportBuilder, opts: { fo
   if (embeds) report.loss(`${F}_EMBEDS`, 'revisions', 'Embedded images and revision deletions are not written.');
   if (d.revisions.sets.length && d.revisions.activeSetId) report.loss(`${F}_REVISIONS`, 'revisions', 'Revision sets and colours are not written.');
   if (d.tags.length) report.loss(`${F}_TAGS`, 'tags', 'Tags are not written.');
-  if (d.production.scenesLocked || d.production.pageLocks.length) report.loss(`${F}_LOCKS`, 'locking', 'Page and scene locks are not written (scene numbers are kept).');
+  if (d.production.pagesLocked || d.production.pageLocks.length) report.loss(`${F}_PAGE_LOCKS`, 'locking', 'Locked pages and A pages are not written; the file paginates freely.');
+  if (d.production.scenesLocked) report.info(`${F}_SCENE_LOCKS`, 'locking', 'Locked scene numbers (including A-numbers such as 12A) are written as fixed numbers; the locked flag itself is not.');
   if (d.beats.length) report.loss(`${F}_BEAT_BOARD`, 'beat_board', 'Beat Board content is not written.');
   if (d.notes.some((n) => n.replies.length)) report.loss(`${F}_NOTE_REPLIES`, 'notes', 'Note replies are not written.');
   if (!opts.keepNotes && d.notes.length) report.loss(`${F}_NOTES`, 'notes', 'Notes are not written.');
