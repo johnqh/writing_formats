@@ -184,7 +184,24 @@ export class DocBuilder {
     return el;
   }
 
+  /** Position for the scene numbers switched on by `finish` (FDX/Fade In may say; default both margins). */
+  sceneNumberPosition: 'left' | 'right' | 'both' = 'both';
+
+  /** Turns scene numbering on for the scene heading style, so imported numbers are displayed. */
+  enableSceneNumbers(position: 'left' | 'right' | 'both' = this.sceneNumberPosition): void {
+    const t = this.json.template;
+    const style = t.styles.find((s) => s.id === t.sceneNumbering.styleId) ?? this.styleForRole('sceneHeading');
+    style.numbering = {
+      counter: 'own', start: 1, format: '{n}', leftOffset: 685_800, rightOffset: 6_748_272, hideRightOnOverlap: true,
+      resetAfterStyle: null, resetEvery: 0, suffixMode: '1AB', skipIO: false, autoOmit: false, omittedText: null, numberFont: null,
+      ...(style.numbering ?? {}), enabled: true, position,
+    };
+  }
+
   finish(importMeta: { source: 'fountain' | 'fdx' | 'fadein'; fileName?: string; version?: number; fdxVersion?: string; unknown?: Record<string, never> | Record<string, unknown> }): DocumentJSON {
+    // Numbers are all-or-nothing on a page; a script with only some headings numbered keeps them stored but not displayed.
+    const headings = this.json.elements.filter((e) => this.roleOfStyle(e.style) === 'sceneHeading');
+    if (headings.length > 0 && headings.every((e) => e.num)) this.enableSceneNumbers();
     this.json.importMeta = {
       source: importMeta.source, fileName: importMeta.fileName ?? '', importedAt: this.now,
       ...(importMeta.version !== undefined ? { osfVersion: importMeta.version } : {}),

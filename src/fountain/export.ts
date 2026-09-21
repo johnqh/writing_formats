@@ -1,6 +1,6 @@
 import type { ElementJSON, TitleField } from '@sudobility/writing_core';
 import { runsFromText } from '../shared/build.js';
-import { DocReader, scanExportLosses } from '../shared/read.js';
+import { DocReader, sceneNumberLabels, scanExportLosses } from '../shared/read.js';
 import { ReportBuilder } from '../report.js';
 import type { FountainExportResult } from '../types.js';
 import { classifyBlock, HEADING_RE, isAllCapsLine } from './classify.js';
@@ -24,6 +24,9 @@ export function exportFountain(document: DocumentJSON, options: FountainExportOp
   const r = new DocReader(document);
   scanExportLosses(r, report, { format: 'fountain', keepNotes: true, keepStrike: false });
   const blocks: string[] = [];
+  const sceneNums = sceneNumberLabels(document);
+  const hf = [document.template.footer.enabled && 'footer', document.template.header.enabled && document.template.header.right !== '{page}.' && 'header'].filter(Boolean);
+  if (hf.length) report.loss('FOUNTAIN_HEADERS', 'headers_footers', `Fountain has no syntax for custom ${hf.join(' and ')} text; it was not written.`);
 
   // Title page from semantic fields.
   const titleLines: string[] = [];
@@ -92,7 +95,8 @@ export function exportFountain(document: DocumentJSON, options: FountainExportOp
       case 'sceneHeading': {
         let t = lineOf(el, true).replace(/\n/g, ' ').trim();
         if (!HEADING_RE.test(t)) t = `.${t}`;
-        if (el.num) t += ` #${formatNumberLabel(el.num.label)}#`;
+        const num = sceneNums.get(el.id) ?? (el.num ? formatNumberLabel(el.num.label) : undefined);
+        if (num) t += ` #${num}#`;
         blocks.push(withNotes(t, el));
         const syn = el.scene?.synopsis.plain;
         if (syn) blocks.push(syn.split('\n').map((l) => `= ${l}`).join('\n'));

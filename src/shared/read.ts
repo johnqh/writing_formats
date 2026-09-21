@@ -1,4 +1,7 @@
-import { resolveStyle, type DocumentJSON, type ElementJSON, type StyleRole } from '@sudobility/writing_core';
+import {
+  assignNumbers, createSeededIdSource, materializeDocument, openDocument, resolveStyle, type DocumentJSON, type ElementJSON, type StyleRole,
+} from '@sudobility/writing_core';
+import { formatNumberLabel } from './build.js';
 import type { ReportBuilder } from '../report.js';
 import type { FormatId } from '../types.js';
 
@@ -78,4 +81,29 @@ export function scanExportLosses(r: DocReader, report: ReportBuilder, opts: { fo
   if (d.notes.some((n) => n.anchor.kind === 'range' || n.anchor.kind === 'document' || n.anchor.kind === 'beat')) {
     report.loss(`${F}_NOTE_ANCHORS`, 'notes', 'Notes not anchored to a whole element are not written.');
   }
+}
+
+/**
+ * Scene number text per element id, as the layout engine would show it (auto numbers included, omitted scenes keep their slot).
+ * Empty when scene numbering is not enabled for the scene heading style, so exporters only write numbers the writer sees.
+ */
+export function sceneNumberLabels(doc: DocumentJSON): Map<string, string> {
+  const out = new Map<string, string>();
+  const t = doc.template;
+  const style = t.styles.find((s) => s.id === t.sceneNumbering.styleId);
+  if (!style?.numbering?.enabled) return out;
+  const ids = createSeededIdSource(7);
+  const ydoc = materializeDocument(doc, { preserveIds: true, ids });
+  try {
+    const model = openDocument(ydoc, { ids, clock: () => 0, locale: 'en' });
+    for (const [id, a] of assignNumbers(model).labels) {
+      if (a.label.custom === '') continue;
+      const text = formatNumberLabel(a.label);
+      if (text) out.set(String(id), text);
+    }
+    model.dispose();
+  } finally {
+    ydoc.destroy();
+  }
+  return out;
 }

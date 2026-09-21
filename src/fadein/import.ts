@@ -125,6 +125,8 @@ export function importFadeIn(input: Uint8Array | string, options: ImportOptions 
     }
     if (truthy(s.pageslocked)) report.loss('FADEIN_PAGES_LOCKED', 'locking', 'Locked pages were not imported.');
     if (s.revision && s.revision !== '0' && truthy(s.revisionmode)) report.loss('FADEIN_REVISION_MODE', 'revisions', 'Revision mode and revision sets were not imported.');
+    const snp = num(s.scenenumberposition);
+    if (snp === 1) b.sceneNumberPosition = 'left'; else if (snp === 2) b.sceneNumberPosition = 'right'; else if (snp === 3) b.sceneNumberPosition = 'both';
     const pn = tpl.pageNumbering;
     if (num(s.pagenumberstart)) pn.start = num(s.pagenumberstart)!;
   }

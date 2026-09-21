@@ -1,6 +1,7 @@
-import { resolveStyle, type DocumentJSON, type ElementJSON, type TextJSON } from '@sudobility/writing_core';
+import { parseTokenString, resolveStyle, type DocumentJSON, type ElementJSON, type TextJSON } from '@sudobility/writing_core';
 import { formatNumberLabel, runsFromText, type Run } from '../shared/build.js';
-import { DocReader, scanExportLosses } from '../shared/read.js';
+import { DocReader, sceneNumberLabels, scanExportLosses } from '../shared/read.js';
+import { FDX_LABEL_TOKENS } from './import.js';
 import { escapeAttr, escapeXml, stripXmlIllegal } from '../shared/xml.js';
 import { ReportBuilder } from '../report.js';
 import type { FdxExportResult } from '../types.js';
@@ -23,6 +24,7 @@ export function exportFdx(document: DocumentJSON): FdxExportResult {
   const r = new DocReader(document);
   scanExportLosses(r, report, { format: 'fdx', keepNotes: true, keepStrike: true });
   const customTypes = new Set<string>();
+  const sceneNums = sceneNumberLabels(document);
 
   const fontOf = (el: ElementJSON, titlePage: boolean): { font: string; size: number; upper: boolean; underline: boolean } => {
     try {
@@ -56,7 +58,8 @@ export function exportFdx(document: DocumentJSON): FdxExportResult {
     if (role === 'outline') type = `Outline ${r.outlineLevel(el)}`;
     if (!type) { type = r.styleName(el); customTypes.add(type); }
     const attrs = [`Type="${escapeAttr(type)}"`];
-    if (el.num) attrs.push(`Number="${escapeAttr(formatNumberLabel(el.num.label))}"`);
+    const num = sceneNums.get(el.id) ?? (el.num ? formatNumberLabel(el.num.label) : undefined);
+    if (num) attrs.push(`Number="${escapeAttr(num)}"`);
     if (el.ov?.align) attrs.push(`Alignment="${ALIGN_ATTR[el.ov.align] ?? 'Left'}"`);
     if (el.ov?.pageBreakBefore) attrs.push('StartsNewPage="Yes"');
     let inner = '';
@@ -89,11 +92,55 @@ export function exportFdx(document: DocumentJSON): FdxExportResult {
   }
   out.push('  </Content>');
 
-  if (document.titlePage.elements.length) {
+  // Header and footer: one paragraph per non-empty slot; the slot becomes the paragraph alignment.
+  const REVERSE_LABELS = new Map(Object.entries(FDX_LABEL_TOKENS).map(([label, tok]) => [tok, label]));
+  const titleText = (field: string) => {
+    const id = document.titlePage.fields[field as keyof typeof document.titlePage.fields];
+    return document.titlePage.elements.find((e) => e.id === id)?.text.plain.split('\n')[0] ?? '';
+  };
+  const hfParagraphs = (kind: 'header' | 'footer'): string[] => {
+    const spec = document.template[kind];
+    const paras: string[] = [];
+    for (const slot of ['left', 'center', 'right'] as const) {
+      const src = spec.enabled ? spec[slot] : '';
+      if (!src) continue;
+      let inner = '';
+      for (const node of parseTokenString(src)) {
+        if (node.kind === 'literal') inner += `<Text>${escapeXml(stripXmlIllegal(node.text))}</Text>`;
+        else if (node.kind === 'token') {
+          const name = node.name.toLowerCase();
+          const label = REVERSE_LABELS.get(`{${name}}`);
+          if (label) inner += `<DynamicLabel Type="${escapeAttr(label)}"/>`;
+          else if (name === 'title' || name === 'draft' || name === 'field') {
+            const field = name === 'field' ? node.args[0] ?? '' : name === 'draft' ? 'draftDate' : 'title';
+            inner += `<Text>${escapeXml(stripXmlIllegal(titleText(field)))}</Text>`;
+            report.info('FDX_HEADER_STATIC', 'headers_footers', 'Title-page tokens in headers and footers were written as their current text.');
+          } else report.warn('FDX_HEADER_TOKEN', 'headers_footers', `Header/footer token {${node.name}} has no Final Draft equivalent and was dropped.`);
+        } else report.warn('FDX_HEADER_TOKEN', 'headers_footers', 'Conditional header/footer text was dropped.');
+      }
+      paras.push(`        <Paragraph Alignment="${ALIGN_ATTR[slot]}">${inner || '<Text/>'}</Paragraph>`);
+    }
+    return paras;
+  };
+  const hdr = hfParagraphs('header');
+  const ftr = hfParagraphs('footer');
+  const tplH = document.template.header, tplF = document.template.footer;
+  out.push(
+    `  <HeaderAndFooter FooterFirstPage="${tplF.showOnFirstPage ? 'Yes' : 'No'}" FooterVisible="${ftr.length ? 'Yes' : 'No'}" HeaderFirstPage="${tplH.showOnFirstPage ? 'Yes' : 'No'}" HeaderVisible="${hdr.length ? 'Yes' : 'No'}" StartingPage="${tplH.startAtPage}">`,
+    '    <Header>', ...(hdr.length ? hdr : ['        <Paragraph><Text/></Paragraph>']), '    </Header>',
+    '    <Footer>', ...(ftr.length ? ftr : ['        <Paragraph><Text/></Paragraph>']), '    </Footer>',
+    '  </HeaderAndFooter>',
+  );
+
+  if (document.titlePage.elements.some((e) => e.text.plain.trim())) {
     out.push('  <TitlePage>', '    <Content>');
     for (const el of document.titlePage.elements) {
+      if (el.field && el.text.plain.trim() === '') continue; // an unfilled field prints nothing
       const st = document.template.titlePageStyles.find((s) => s.id === el.style);
       const align = el.ov?.align ?? st?.align ?? 'left';
+      // Final Draft has no vertical positioning: leading space becomes blank paragraphs.
+      const lead = Math.min(el.ov?.spaceBefore ?? 0, 30);
+      for (let k = 0; k < lead; k++) out.push(`      <Paragraph Alignment="${ALIGN_ATTR[align] ?? 'Left'}"><Text/></Paragraph>`);
       out.push(`      <Paragraph Alignment="${ALIGN_ATTR[align] ?? 'Left'}">${textXml(el.text, fontOf(el, true))}</Paragraph>`);
     }
     out.push('    </Content>', '  </TitlePage>');

@@ -76,7 +76,7 @@ describe('fdx import', () => {
 
   it('warns rather than silently dropping unsupported features', () => {
     const codes = report.diagnostics.map((d) => d.code);
-    for (const c of ['FDX_REVISION_SETS', 'FDX_LOCKED_PAGES', 'FDX_HEADERANDFOOTER', 'FDX_REVISION_MARKS', 'FDX_RUN_STYLE', 'FDX_UNKNOWN_TYPE', 'FDX_ELEMENT_SETTINGS']) {
+    for (const c of ['FDX_REVISION_SETS', 'FDX_LOCKED_PAGES', 'FDX_REVISION_MARKS', 'FDX_RUN_STYLE', 'FDX_UNKNOWN_TYPE', 'FDX_ELEMENT_SETTINGS']) {
       expect(codes, c).toContain(c);
     }
     expect(report.summary.loss).toBeGreaterThan(0);

@@ -12,7 +12,6 @@ const BUILTIN_ROLES: Record<string, StyleRole> = {
 
 /** Top-level FDX sections that carry data this slice does not import, with the feature they belong to. */
 const IGNORED_SECTIONS: Record<string, { feature: 'headers_footers' | 'smarttype' | 'watermark' | 'macros' | 'table_read' | 'beat_board' | 'dictionaries' | 'unknown_content' | 'page_layout'; label: string; severity: 'info' | 'loss' }> = {
-  HeaderAndFooter: { feature: 'headers_footers', label: 'headers and footers', severity: 'loss' },
   SmartType: { feature: 'smarttype', label: 'SmartType lists', severity: 'info' },
   Watermarking: { feature: 'watermark', label: 'watermark settings', severity: 'loss' },
   Macros: { feature: 'macros', label: 'macros', severity: 'loss' },
@@ -24,6 +23,12 @@ const IGNORED_SECTIONS: Record<string, { feature: 'headers_footers' | 'smarttype
   PageLayout: { feature: 'page_layout', label: 'page layout (the template geometry is used)', severity: 'info' },
   MoresAndContinueds: { feature: 'page_layout', label: 'MORE/CONT\'D settings', severity: 'info' },
   SceneNumberOptions: { feature: 'scene_numbers', label: 'scene number display options', severity: 'info' } as never,
+};
+
+/** FDX header/footer DynamicLabel types to spec 02 §20.2 tokens (the table there, run backwards). */
+export const FDX_LABEL_TOKENS: Record<string, string> = {
+  'Page #': '{page}', Date: '{date}', Scene: '{scene.heading}', Label: '{label}', 'Active Revision': '{revision.active}',
+  'Collated Revisions': '{revision.collated}', 'File Name': '{filename}', 'Last Revised': '{lastRevised}',
 };
 
 const CREDIT_RE = /^(written|screenplay|teleplay|story|adapted|prepared)\b.*\b(by|for)\b|^by$/i;
@@ -170,6 +175,36 @@ export function importFdx(xml: string, options: ImportOptions = {}): ImportResul
       b.addTitleElement(b.titleStyleFor(null, align), textFromRuns(runs), field);
     }
     if (have.size) report.warn('FDX_TITLE_FIELDS_GUESSED', 'title_page', 'Title page fields (title, credit, author, contact, draft, copyright) were guessed from position and wording; check them.');
+  }
+
+  // Header and footer: paragraphs of literal text and DynamicLabels; the paragraph alignment picks the slot.
+  const hfNode = child(root, 'HeaderAndFooter');
+  if (hfNode) {
+    const tpl = b.json.template;
+    const start = Number(hfNode.attrs.StartingPage);
+    for (const kind of ['Header', 'Footer'] as const) {
+      const spec = kind === 'Header' ? tpl.header : tpl.footer;
+      const node = child(hfNode, kind);
+      spec.left = spec.center = spec.right = '';
+      for (const p of node ? childrenNamed(node, 'Paragraph') : []) {
+        let text = '';
+        for (const c of p.children) {
+          if (c.name === 'Text') text += c.text.replace(/[{}]/g, (ch) => ch + ch);
+          else if (c.name === 'DynamicLabel') {
+            const tok = FDX_LABEL_TOKENS[c.attrs.Type ?? ''];
+            if (tok) text += tok;
+            else report.warn('FDX_HEADER_LABEL', 'headers_footers', `Header/footer label "${c.attrs.Type ?? ''}" has no equivalent and was dropped.`);
+          }
+        }
+        if (text.trim() === '') continue;
+        const slot = alignOf(p.attrs.Alignment) === 'center' ? 'center' : alignOf(p.attrs.Alignment) === 'right' ? 'right' : 'left';
+        spec[slot] = spec[slot] ? `${spec[slot]} ${text}` : text;
+      }
+      const visible = hfNode.attrs[`${kind}Visible`] !== 'No';
+      spec.enabled = visible && (spec.left !== '' || spec.center !== '' || spec.right !== '');
+      spec.showOnFirstPage = hfNode.attrs[`${kind}FirstPage`] === 'Yes';
+      if (Number.isFinite(start) && start >= 1) spec.startAtPage = start;
+    }
   }
 
   // Sections whose data is not imported: say so instead of dropping silently.

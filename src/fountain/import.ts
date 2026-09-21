@@ -171,7 +171,7 @@ export function importFountain(input: string, options: ImportOptions = {}): Impo
         const nm = /\s*#([A-Za-z0-9.\-]+)#\s*$/.exec(head);
         if (nm) { numberText = nm[1]!; head = head.slice(0, nm.index); }
         emit(S('sceneHeading'), inline(head.trim()), noteIds(0), numberText
-          ? { num: { label: parseNumberLabel(numberText), locked: true, manual: true } } : {});
+          ? { num: { label: parseNumberLabel(numberText), locked: false, manual: true } } : {});
         if (texts.length > 1) emit(S('action'), inline(texts.slice(1).join('\n').replace(/\t/g, '    ')), real.slice(1).flatMap((l) => l.notes));
         return;
       }
