@@ -102,3 +102,15 @@ describe('FDX header/footer, title page and scene numbers', () => {
     expect(report.diagnostics.some((d) => d.code === 'FDX_HEADER_STATIC')).toBe(true);
   });
 });
+
+describe('revisions on export', () => {
+  it('reports revision marks as unsupported (text kept) for Fountain and FDX', () => {
+    const { document } = importFountain(FOUNTAIN);
+    const el = document.elements[0]!;
+    el.text = { ...el.text, runs: el.text.runs.map((r) => ({ ...r, attrs: { ...r.attrs, rev: 'rev_01ARZ3NDEKTSV4RRFFQ69G5FAV' } })) };
+    for (const fn of [exportFountain, exportFdx]) {
+      const res = fn(document);
+      expect(res.report.diagnostics.some((d) => d.code.endsWith('_REVISIONS'))).toBe(true);
+    }
+  });
+});

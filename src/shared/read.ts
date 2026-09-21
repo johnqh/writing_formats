@@ -59,12 +59,15 @@ const KEPT_MARKS = new Set(['b', 'i', 'u', 's']);
 export function scanExportLosses(r: DocReader, report: ReportBuilder, opts: { format: FormatId; keepNotes: boolean; keepStrike: boolean }): void {
   const d = r.doc;
   const marks = new Set<string>();
-  let alts = 0, tc = 0, embeds = 0;
+  let alts = 0, tc = 0, embeds = 0, revRuns = 0;
   for (const el of [...d.elements, ...d.titlePage.elements]) {
     if (el.alts?.length) alts++;
     if (el.tc) tc++;
     if (el.text.embeds.length) embeds += el.text.embeds.length;
-    for (const run of el.text.runs) for (const k of Object.keys(run.attrs)) if (!KEPT_MARKS.has(k)) marks.add(k);
+    for (const run of el.text.runs) {
+      if (run.attrs.rev !== undefined) revRuns++;
+      for (const k of Object.keys(run.attrs)) if (!KEPT_MARKS.has(k) && k !== 'rev') marks.add(k);
+    }
     if (!opts.keepStrike && el.text.runs.some((x) => x.attrs.s)) marks.add('s');
   }
   const F = opts.format.toUpperCase();
@@ -72,7 +75,7 @@ export function scanExportLosses(r: DocReader, report: ReportBuilder, opts: { fo
   if (alts) report.loss(`${F}_ALTERNATES`, 'alternates', 'Alternate dialogue is not written.');
   if (tc) report.loss(`${F}_TRACK_CHANGES`, 'track_changes', 'Tracked changes are written as plain text.');
   if (embeds) report.loss(`${F}_EMBEDS`, 'revisions', 'Embedded images and revision deletions are not written.');
-  if (d.revisions.sets.length && d.revisions.activeSetId) report.loss(`${F}_REVISIONS`, 'revisions', 'Revision sets and colours are not written.');
+  if (revRuns > 0 || (d.revisions.sets.length && d.revisions.activeSetId)) report.loss(`${F}_REVISIONS`, 'revisions', 'Revision sets, colours and revision marks are not written; the text is kept.');
   if (d.tags.length) report.loss(`${F}_TAGS`, 'tags', 'Tags are not written.');
   if (d.production.pagesLocked || d.production.pageLocks.length) report.loss(`${F}_PAGE_LOCKS`, 'locking', 'Locked pages and A pages are not written; the file paginates freely.');
   if (d.production.scenesLocked) report.info(`${F}_SCENE_LOCKS`, 'locking', 'Locked scene numbers (including A-numbers such as 12A) are written as fixed numbers; the locked flag itself is not.');
