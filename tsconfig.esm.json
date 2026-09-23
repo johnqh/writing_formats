@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "noEmitOnError": true,
+    "outDir": "./dist",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    // `rootDir` lives only here, not in the base tsconfig.json: the base config's `paths` (above)
+    // stays active for local dev/typecheck, where the raw sibling source is fine to reference without
+    // a rootDir constraint (nothing is emitted there); this build-only config both clears `paths` and
+    // sets `rootDir`, since only a real emit needs the constraint enforced.
+    "rootDir": "./src",
+    // The base tsconfig's `paths` (local sibling source, for fast dev iteration) is deliberately NOT
+    // inherited here: a real emit needs `@sudobility/writing_core` to resolve to its own compiled
+    // `dist/index.d.ts` (via node_modules — a real npm dependency, package.json), not raw `.ts` source,
+    // which `tsc`'s `rootDir` check would otherwise reject as outside this package's own `./src`.
+    "paths": {}
+  },
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+}

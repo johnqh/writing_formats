@@ -17,5 +17,6 @@
       "@sudobility/writing_core": ["../writing_core/src/index.ts"]
     }
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }
