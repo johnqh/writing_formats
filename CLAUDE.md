@@ -26,7 +26,7 @@ Every function returns a `ConversionReport` (§3.1): `diagnostics[]` (`info | wa
   then importers fill `elements`, `titlePage`, `notes`, `bin`. Also `textFromRuns`, `parseNumberLabel`.
 - `src/shared/read.ts` — `DocReader` (role/all-caps lookups for exporters) and `scanExportLosses`.
 - `src/shared/xml.ts` — `fast-xml-parser` wrapped into a DOM-free `XNode` tree; DOCTYPE stripped (no entity expansion).
-- `src/fountain/` — `classify.ts` (shared reader/writer block classifier), `inline.ts` (emphasis), `import.ts`, `export.ts`.
+- `src/fountain/` — `classify.ts` (shared reader/writer block classifier), `inline.ts` (emphasis), `import.ts`, `export.ts`. `classify.ts` is genuinely dependency-free, so `package.json` also exposes it as its own `./fountain-classify` subpath export (`writing_ui`'s live-document paste classifier imports just that, without pulling in this package's `fast-xml-parser`/`fflate` FDX/.fadein dependencies).
 - `src/fdx/`, `src/fadein/` — one `import.ts`/`export.ts` each. `src/detect.ts`, `src/registry.ts`.
 - `src/test-support/helpers.ts` — `elementSequence`, `validate` (materialize + `validateDocument`), `layoutPages`.
 

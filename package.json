@@ -1,6 +1,6 @@
 {
   "name": "@sudobility/writing_formats",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "File-format import/export for Fadewright: Fountain, Final Draft (.fdx) and Fade In (.fadein) to and from writing_core's DocumentJSON, with conversion reports",
   "type": "module",
   "main": "./dist/index.js",
@@ -10,6 +10,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./fountain-classify": {
+      "types": "./dist/fountain/classify.d.ts",
+      "import": "./dist/fountain/classify.js",
+      "default": "./dist/fountain/classify.js"
     }
   },
   "scripts": {
